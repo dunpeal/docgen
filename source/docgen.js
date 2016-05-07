@@ -90,18 +90,23 @@ function DocGen (process)
         write any file (async)
     */
 
-    var writeFile = function (path, data) {
+    var writeFile = function (filepath, data) {
         return new rsvp.Promise(function (resolve, reject) {
-            fs.writeFile(path, data, function (error) {
+            var dir = path.dirname(filepath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirpSync(dir);
+            }
+
+            fs.writeFile(filepath, data, function (error) {
                 if (error) {
-                    console.log(chalk.red('Error writing file: '+path));
+                    console.log(chalk.red('Error writing file: '+filepath));
                     reject(error);
                 } else {
                     resolve(true);
                 }
             });
         });
-    }
+    };
 
     /*
         copy any directory (sync)
