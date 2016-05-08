@@ -15,11 +15,11 @@ var imageSizeOf = require('image-size');
 //Allow CommonMark links that use other protocols, such as file:///
 //The markdown-it implementation is more restrictive than the CommonMark spec
 //See https://github.com/markdown-it/markdown-it/issues/108
-markdown.validateLink = function () { return true; } 
+markdown.validateLink = function () { return true; }
 
 /**
-* DocGen class
-*/
+ * DocGen class
+ */
 
 function DocGen (process)
 {
@@ -53,8 +53,8 @@ function DocGen (process)
     }
 
     /*
-        copy the example source files (template) to any directory, when scaffold command is invoked
-    */
+     copy the example source files (template) to any directory, when scaffold command is invoked
+     */
 
     this.scaffold = function () {
         console.log(chalk.green('Creating scaffold template directory'));
@@ -69,8 +69,8 @@ function DocGen (process)
     }
 
     /*
-        read any file (async)
-    */
+     read any file (async)
+     */
 
     var readFile = function (path) {
         return new rsvp.Promise(function (resolve, reject) {
@@ -87,8 +87,8 @@ function DocGen (process)
     }
 
     /*
-        write any file (async)
-    */
+     write any file (async)
+     */
 
     var writeFile = function (filepath, data) {
         return new rsvp.Promise(function (resolve, reject) {
@@ -109,8 +109,8 @@ function DocGen (process)
     };
 
     /*
-        copy any directory (sync)
-    */
+     copy any directory (sync)
+     */
 
     var copyDirSync = function (source, destination) {
         try {
@@ -125,8 +125,8 @@ function DocGen (process)
     }
 
     /*
-        remake a directory (sync) ... remove and then mkdir in one operation
-    */
+     remake a directory (sync) ... remove and then mkdir in one operation
+     */
 
     var remakeDirSync = function (path) {
         try {
@@ -142,8 +142,8 @@ function DocGen (process)
     }
 
     /*
-        remove any directory (sync)
-    */
+     remove any directory (sync)
+     */
 
     var removeDirSync = function (path) {
         try {
@@ -158,18 +158,23 @@ function DocGen (process)
     }
 
     /*
-        load all HTML template files
-    */
+     load all HTML template files
+     */
 
     var loadTemplates = function () {
         console.log(chalk.green('Loading templates'));
+        var templateDir = options.input + '/templates';
+        if (!fs.existsSync(templateDir)) {
+            templateDir = __dirname + '/templates';
+        }
+
         var files = {
-            main: readFile(__dirname+'/templates/main.html'),
-            redirect: readFile(__dirname+'/templates/redirect.html'),
-            webCover: readFile(__dirname+'/templates/webCover.html'),
-            pdfCover: readFile(__dirname+'/templates/pdfCover.html'),
-            pdfHeader: readFile(__dirname+'/templates/pdfHeader.html'),
-            pdfFooter: readFile(__dirname+'/templates/pdfFooter.html'),
+            main: readFile(templateDir+'/main.html'),
+            redirect: readFile(templateDir+'/redirect.html'),
+            webCover: readFile(templateDir+'/webCover.html'),
+            pdfCover: readFile(templateDir+'/pdfCover.html'),
+            pdfHeader: readFile(templateDir+'/pdfHeader.html'),
+            pdfFooter: readFile(templateDir+'/pdfFooter.html'),
         };
         rsvp.hash(files).then(function(files) {
             for (var key in files) {
@@ -179,7 +184,8 @@ function DocGen (process)
                     templates[key] = dom;
                 }
             }
-            loadMeta();
+            //loadMeta();
+            loadMarkdown();
         }).catch(function(error) {
             console.log(chalk.red('Error loading templates'));
             if (options.verbose === true) {
@@ -190,8 +196,8 @@ function DocGen (process)
     }
 
     /*
-        JSON schema validation
-    */
+     JSON schema validation
+     */
 
     var schemas = {
         "parameters" : {
@@ -244,7 +250,7 @@ function DocGen (process)
                 },
                 contributors: {
                     type : "array",
-                    items: { oneOf: [ { 
+                    items: { oneOf: [ {
                         type: "object",
                         required: [ "name", "url"],
                         properties: {
@@ -279,7 +285,7 @@ function DocGen (process)
         "contents" : {
             title: "DocGen Table of Contents Schema",
             type : "array",
-            items: { oneOf: [ { 
+            items: { oneOf: [ {
                 type: "object",
                 required: [ "heading", "column", "pages"],
                 properties: {
@@ -287,7 +293,7 @@ function DocGen (process)
                     column: { type: "integer", minimum: 1, maximum: 4 },
                     pages: {
                         type : "array",
-                        items: { oneOf: [ { 
+                        items: { oneOf: [ {
                             type: "object",
                             required: [ "title", "source"],
                             properties: {
@@ -316,8 +322,8 @@ function DocGen (process)
     }
 
     /*
-        load all metadata files (JSON)
-    */
+     load all metadata files (JSON)
+     */
 
     var loadMeta = function () {
         console.log(chalk.green('Loading required JSON metadata files'));
@@ -345,8 +351,8 @@ function DocGen (process)
                 }
             }
             //add the release notes to the contents list
-            var extra = { 
-                heading: 'Extra', 
+            var extra = {
+                heading: 'Extra',
                 column: 5,
                 pages: [
                     { title: 'Release notes', source: 'release-notes.txt' }
@@ -363,42 +369,50 @@ function DocGen (process)
         });
     }
 
+    // List all files in a directory in Node.js recursively in a synchronous fashion
+    var walkSync = function(dir, filelist) {
+        var files = fs.readdirSync(dir);
+        filelist = filelist || [];
+        files.forEach(function(file) {
+            if (fs.statSync(dir + '/' + file).isDirectory()) {
+                filelist = walkSync(dir + '/' + file, filelist);
+            }
+            else {
+                filelist.push(dir + '/' + file);
+            }
+        });
+        return filelist;
+    };
+
     /*
-        load all markdown files (source)
-    */
+     load all markdown files (source)
+     */
 
     var loadMarkdown = function () {
         console.log(chalk.green('Loading source files'));
         var keys = [];
         var files = [];
-        meta.contents.forEach( function (section) {
-            section.pages.forEach( function (page) {
-                keys.push(page);
-                files.push(options.input+'/'+page.source);
-            });
+
+        files = walkSync(options.input.replace(/\/$/, ''), []);
+
+        files = files.filter(function (file) {
+            return /\.txt$/.test(file);
         });
-        //add the release notes page
-        keys.push('ownership');
-        files.push(options.input+'/release-notes.txt');
-        rsvp.all(files.map(readFile)).then(function (files) {
-            files.forEach( function (page, index) {
+
+        rsvp.all(files.map(readFile)).then(function (contents) {
+            contents.forEach( function (page, index) {
                 try{
-                    var key = keys[index];
-                    if (key.html === true) {   //allow raw HTML input pages
-                        pages[key.source] = page;
-                    } else {                    //otherwise parse input from Markdown into HTML
-                        var html = markdown.render(page);
-                        pages[key.source] = html;
-                    }
+                    var html = markdown.render(page);
+                    pages[files[index].replace(options.input, '')] = html;
                 } catch (error) {
-                    console.log(chalk.red('Error parsing Markdown file: '+file.source));
+                    console.log(chalk.red('Error parsing Markdown file: '+files[index]));
                     if (options.verbose === true) {
                         console.log(chalk.red(error));
                     }
                     mainProcess.exit(1);
                 }
             });
-            process(); 
+            process();
         }).catch(function(error) {
             console.log(chalk.red('Error loading source files'));
             if (options.verbose === true) {
@@ -421,8 +435,8 @@ function DocGen (process)
     }
 
     /*
-        build the HTML for the table of contents
-    */
+     build the HTML for the table of contents
+     */
 
     var webToc = function () {
         sortPages();
@@ -467,8 +481,8 @@ function DocGen (process)
     }
 
     /*
-        insert the parameters into all templates
-    */
+     insert the parameters into all templates
+     */
 
     var insertParameters = function () {
 
@@ -566,9 +580,9 @@ function DocGen (process)
                     $('#dg-logo').css('background-image', 'url(' + logoUrl + ')');
                     $('#dg-logo').css('height', logoHeight+'px');
                     $('#dg-logo').css('line-height', logoHeight+'px');
-                    $('#dg-logo').css('padding-left', (logoWidth+25)+'px'); 
+                    $('#dg-logo').css('padding-left', (logoWidth+25)+'px');
                 } else {
-                    $('#dg-logo').css('padding-left', '0'); 
+                    $('#dg-logo').css('padding-left', '0');
                 }
                 //parameters
                 $('title').text(meta.parameters.title);
@@ -576,7 +590,7 @@ function DocGen (process)
                 $('#dg-title').text(meta.parameters.title);
                 $('#dg-owner').html(owner);
                 $('#dg-version').text(releaseVersion);
-                $('#dg-web-title-version').text('('+releaseVersion+')');  
+                $('#dg-web-title-version').text('('+releaseVersion+')');
                 $('#dg-release-date').text(releaseDate);
                 $('#dg-web-footer').text(webFooter);
                 $('#dg-author').html(author);
@@ -603,64 +617,63 @@ function DocGen (process)
         if (options.mathMathjax === true) {
             //support for MathJax (only supported via CDN due to very large size)
             //MathJax configuration is the same as used by math.stackexchange.com
-                //Note - wkhtmlpdf //cdn urls - see https://github.com/wkhtmltopdf/wkhtmltopdf/issues/1634
+            //Note - wkhtmlpdf //cdn urls - see https://github.com/wkhtmltopdf/wkhtmltopdf/issues/1634
             $('head').append('<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML-full"></script>');
         }
     }
 
     /*
-        process each input into an output
-    */
+     process each input into an output
+     */
 
     var process = function () {
         console.log(chalk.green('Generating the static web content'));
-        webToc();
-        insertParameters();
-        meta.contents.forEach( function (section) {
-            section.pages.forEach( function (page) {
-                var $ = cheerio.load(templates.main.html()); //clone
-                var key = page.source;
-                var content = pages[key];
-                //add relevant container
-                if (page.html === true) { //raw HTML pages should not be confined to the fixed width
-                    $('#dg-content').html('<div id="dg-innerContent"></div>');
-                } else { //Markdown pages should be confined to the fixed width
-                    $('#dg-content').html('<div class="w-fixed-width"><div id="dg-innerContent"></div></div>');
-                }
-                $('#dg-innerContent').html(content);
-                //------------------------------------------------------------------------------------------------------
-                //insert permalinks for every page heading
-                //when pageToc is enabled, also insert a page-level table of contents
-                var html = [], i = -1;
-                var headings = $('h1, h2, h3, h4, h5, h6');
-                if (headings.length > 0) {
-                    html[++i] = '<ul class="dg-pageToc">';
-                }
-                headings.each(function( index ) {
-                    var label = $(this).text();
-                    var anchor = label.toLowerCase().replace(/\s+/g, "-");
-                    $(this).attr('id', anchor);
-                    html[++i] = '<li><a href="#'+anchor+'">'+label+'</a></li>';
-                });
-                if (headings.length > 0) {
-                    html[++i] = '</ul>';
-                }
-                if (options.pageToc === true && page.html !== true) {
-                    $('#dg-innerContent').prepend(html.join(''));
-                }
-                //------------------------------------------------------------------------------------------------------
-                //prepend the auto heading (which makes the PDF table of contents match the web TOC)
-                $('#dg-innerContent').prepend('<h1 id="dg-autoTitle">'+page.title+'</h1>');
-                if (page.html === true) {
-                    $('#dg-autoTitle').addClass('dg-hiddenTitle');
-                }
-                //------------------------------------------------------------------------------------------------------
-                //apply the w-table class
-                $('table:not(.unstyled)').addClass('w-table w-fixed w-stripe');
-                //------------------------------------------------------------------------------------------------------
-                pages[key] = $;
+        //webToc();
+        //insertParameters();
+        for (var file in pages) {
+            var content = pages[file];
+            var page = {html: false};
+            var $ = cheerio.load(templates.main.html()); //clone
+            //add relevant container
+            if (page.html === true) { //raw HTML pages should not be confined to the fixed width
+                $('#dg-content').html('<div id="dg-innerContent"></div>');
+            } else { //Markdown pages should be confined to the fixed width
+                $('#dg-content').html('<div class="w-fixed-width"><div id="dg-innerContent"></div></div>');
+            }
+            $('#dg-innerContent').html(content);
+            //------------------------------------------------------------------------------------------------------
+            //insert permalinks for every page heading
+            //when pageToc is enabled, also insert a page-level table of contents
+            var html = [], i = -1;
+            var headings = $('h1, h2, h3, h4, h5, h6');
+            if (headings.length > 0) {
+                html[++i] = '<ul class="dg-pageToc">';
+            }
+            headings.each(function( index ) {
+                var label = $(this).text();
+                var anchor = label.toLowerCase().replace(/\s+/g, "-");
+                $(this).attr('id', anchor);
+                html[++i] = '<li><a href="#'+anchor+'">'+label+'</a></li>';
             });
-        });
+            if (headings.length > 0) {
+                html[++i] = '</ul>';
+            }
+            if (options.pageToc === true && page.html !== true) {
+                $('#dg-innerContent').prepend(html.join(''));
+            }
+            //------------------------------------------------------------------------------------------------------
+            //prepend the auto heading (which makes the PDF table of contents match the web TOC)
+            //$('#dg-innerContent').prepend('<h1 id="dg-autoTitle">'+page.title+'</h1>');
+            if (page.html === true) {
+                $('#dg-autoTitle').addClass('dg-hiddenTitle');
+            }
+            //------------------------------------------------------------------------------------------------------
+            //apply the w-table class
+            $('table:not(.unstyled)').addClass('w-table w-fixed w-stripe');
+            //------------------------------------------------------------------------------------------------------
+            pages[file] = $;
+        };
+
         //add web ownership page
         var $ = cheerio.load(templates.main.html()); //clone
         $('#dg-content').html('<div class="w-fixed-width"><div id="dg-innerContent"></div></div>');
@@ -670,23 +683,20 @@ function DocGen (process)
     }
 
     /*
-        write each html page
-    */
+     write each html page
+     */
 
     var writePages = function () {
         console.log(chalk.green('Writing the web page files'));
         var promises = {};
-        meta.contents.forEach( function (section) {
-            section.pages.forEach( function (page) {
-                var key = page.source;
-                var name = key.substr(0, page.source.lastIndexOf('.'));
-                var path = options.output+name+'.html';
-                var html = pages[key].html();
-                promises[key] = writeFile(path, html);
-            });
-        });
-        //add extra files
-        promises['ownership'] = writeFile(options.output+'ownership.html', templates.webCover.html());
+
+        for (var file in pages) {
+            var name = file.substr(0, file.lastIndexOf('.'));
+            var path = options.output + name + '.html';
+            var html = pages[file].html();
+            promises[file] = writeFile(path, html);
+        }
+
         if (options.pdf === true) {
             var pdfTempDir = options.output+'temp/';
             fs.mkdirsSync(pdfTempDir);
@@ -711,8 +721,8 @@ function DocGen (process)
     }
 
     /*
-        wkthmltopdf options
-    */
+     wkthmltopdf options
+     */
 
     var pdfOptions = [
         ' --zoom 1.0',
@@ -786,8 +796,8 @@ function DocGen (process)
     }
 
     /*
-        call wkhtmltopdf as an external executable
-    */
+     call wkhtmltopdf as an external executable
+     */
 
     var generatePdf = function () {
         console.log(chalk.green('Creating the PDF copy (may take some time)'));
@@ -819,7 +829,7 @@ function DocGen (process)
         wkhtmltopdf.stderr.on('data', function (data) {
             //do nothing
         });
-             
+
         wkhtmltopdf.on('close', function (code) {
             if (options.verbose !== true) {
                 spinner.stop();
@@ -857,8 +867,8 @@ function DocGen (process)
     }
 
     /*
-        cleanup
-    */
+     cleanup
+     */
 
     var cleanUp = function () {
         createRedirect();
